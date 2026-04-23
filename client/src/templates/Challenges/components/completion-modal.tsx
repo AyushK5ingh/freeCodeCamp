@@ -4,6 +4,7 @@ import { withTranslation } from 'react-i18next';
 import { connect } from 'react-redux';
 import { createSelector } from 'reselect';
 import { Button, Modal, Spacer } from '@freecodecamp/ui';
+import { zip } from 'fflate';
 
 import Login from '../../../components/Header/components/login';
 import {
@@ -97,9 +98,20 @@ function CompletionModal({
     // leak URL objects.
     if (downloadURL) URL.revokeObjectURL(downloadURL);
     if (challengeFiles?.length) {
-      const allFileContents = combineFileData(challengeFiles);
-      const blob = new Blob([allFileContents], { type: 'text/json' });
-      setDownloadURL(URL.createObjectURL(blob));
+      const zipContents: Record<string, Uint8Array> = {};
+      for (const file of challengeFiles) {
+        const filename = `${file.name}.${file.ext}`;
+        zipContents[filename] = new TextEncoder().encode(file.contents);
+      }
+      
+      zip(zipContents, (err, data) => {
+        if (err) {
+          console.error('Error creating ZIP file:', err);
+          return;
+        }
+        const blob = new Blob([data], { type: 'application/zip' });
+        setDownloadURL(URL.createObjectURL(blob));
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [challengeFiles]);
@@ -194,7 +206,7 @@ function CompletionModal({
             block={true}
             size='large'
             variant='primary'
-            download={`${dashedName}.txt`}
+            download={`${dashedName}.zip`}
             href={downloadURL}
           >
             {t('learn.download-solution')}
@@ -211,18 +223,3 @@ export default connect(
   mapStateToProps,
   mapDispatchToProps
 )(withTranslation()(CompletionModal));
-
-export function combineFileData(challengeFiles: DownloadableChallengeFile[]) {
-  return challengeFiles.reduce<string>(function (
-    allFiles: string,
-    currentFile: DownloadableChallengeFile
-  ) {
-    const beforeText = `** start of ${currentFile.name + '.' + currentFile.ext} **\n\n`;
-    const afterText = `\n\n** end of ${currentFile.name + '.' + currentFile.ext} **\n\n`;
-    allFiles +=
-      challengeFiles.length > 0
-        ? `${beforeText}${currentFile.contents}${afterText}`
-        : currentFile.contents;
-    return allFiles;
-  }, '');
-}

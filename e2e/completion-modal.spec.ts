@@ -192,4 +192,13 @@ test.describe('Challenge Completion Modal Tests (Signed In)', () => {
     await page.keyboard.press('Meta+Enter');
     await expect(page).toHaveURL(nextChallengeURL);
   });
+
+  test('should allow downloading solution as ZIP file', async ({ page }) => {
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: translations.learn['download-solution'] }).click()
+    ]);
+    const suggestedFileName = download.suggestedFilename();
+    expect(suggestedFileName).toMatch(/\.zip$/);
+  });
 });
